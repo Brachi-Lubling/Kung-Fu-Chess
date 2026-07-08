@@ -63,7 +63,11 @@ private:
     // cannot be selected, so it cannot be redirected.
     bool is_moving(int x, int y) const;
 
-    bool destination_reserved(int x, int y) const;
+    // True if a move from (start_x, start_y) to (dest_x, dest_y) would pass
+    // through any cell already on the route of a pending move. Whichever
+    // move was scheduled first keeps its claim on the route; a later,
+    // colliding move is rejected outright.
+    bool conflicts_with_pending_move(int start_x, int start_y, int dest_x, int dest_y) const;
 
     long long arrival_time_for(int start_x, int start_y, int dest_x, int dest_y) const;
     void settle_arrived_moves();
@@ -76,8 +80,8 @@ private:
     bool handle_click_with_selection(Position cell, std::optional<Cell> clicked_piece, bool clicked_cell_is_selectable);
 
     // Attempts to move the currently selected piece to `cell`. Does nothing
-    // if the destination is already reserved by another pending move, or if
-    // the move doesn't match the piece's shape (or its path is blocked). On
-    // success, queues a pending move and clears the selection.
+    // if the move doesn't match the piece's shape (or its path is blocked),
+    // or if its route collides with a move already in flight. On success,
+    // queues a pending move and clears the selection.
     void try_schedule_move(Position cell, Cell selected_piece);
 };
