@@ -1,20 +1,50 @@
-﻿// Kung-Fu-Chess.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include <iostream>
+#include <string>
+#include <vector>
 
-int main()
-{
-    std::cout << "Hello World!\n";
+#include "Board.h"
+#include "Parser.h"
+
+namespace {
+
+std::vector<std::string> read_lines_until(std::istream& in, const std::string& stop_marker) {
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line == stop_marker) {
+            break;
+        }
+        lines.push_back(line);
+    }
+    return lines;
 }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
+void run_command(const std::string& command, const Board& board) {
+    if (command == "print board") {
+        std::cout << Parser::board_to_string(board) << "\n";
+    }
+}
 
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+} // namespace
+
+int main() {
+    std::string first_line;
+    if (!std::getline(std::cin, first_line) || first_line != "Board:") {
+        return 0;
+    }
+
+    std::vector<std::string> board_lines = read_lines_until(std::cin, "Commands:");
+
+    Board board(0, 0);
+    try {
+        board = Parser::parse_board(board_lines);
+    } catch (const ParseError& e) {
+        std::cout << "ERROR " << e.what() << "\n";
+        return 0;
+    }
+
+    std::string command;
+    while (std::getline(std::cin, command)) {
+        run_command(command, board);
+    }
+}
