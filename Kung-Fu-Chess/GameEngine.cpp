@@ -17,6 +17,8 @@ GameEngine::GameEngine(Board board, long long move_ms_per_cell)
     : board_(std::move(board)), move_ms_per_cell_(move_ms_per_cell) {
 }
 
+// Converts pixel coordinates into board cell coordinates, or nullopt if the
+// pixel falls outside the board.
 std::optional<Position> GameEngine::pixel_to_cell(int pixel_x, int pixel_y) const {
     if (pixel_x < 0 || pixel_y < 0) {
         return std::nullopt;
@@ -32,6 +34,7 @@ std::optional<Position> GameEngine::pixel_to_cell(int pixel_x, int pixel_y) cons
     return Position{ cell_x, cell_y };
 }
 
+// True if the piece at (x, y) has a pending move that hasn't arrived yet.
 bool GameEngine::is_moving(int x, int y) const {
     for (const PendingMove& move : pending_moves_) {
         if (move.start.x == x && move.start.y == y) {
@@ -41,6 +44,7 @@ bool GameEngine::is_moving(int x, int y) const {
     return false;
 }
 
+// True if some pending move is already headed to (x, y).
 bool GameEngine::destination_reserved(int x, int y) const {
     for (const PendingMove& move : pending_moves_) {
         if (move.dest.x == x && move.dest.y == y) {
@@ -50,11 +54,15 @@ bool GameEngine::destination_reserved(int x, int y) const {
     return false;
 }
 
+// Computes when a move between the two cells will arrive, based on travel
+// time per cell of (Chebyshev) distance.
 long long GameEngine::arrival_time_for(int start_x, int start_y, int dest_x, int dest_y) const {
     int distance_cells = std::max(abs_diff(start_x, dest_x), abs_diff(start_y, dest_y));
     return clock_ms_ + static_cast<long long>(distance_cells) * move_ms_per_cell_;
 }
 
+// Applies every pending move whose arrival time has passed, and keeps the
+// rest queued.
 void GameEngine::settle_arrived_moves() {
     std::vector<PendingMove> still_pending;
 
@@ -71,6 +79,8 @@ void GameEngine::settle_arrived_moves() {
     pending_moves_ = std::move(still_pending);
 }
 
+// Reselects a friendly selectable piece on `cell`, otherwise attempts to
+// move the current selection onto it.
 bool GameEngine::handle_click_with_selection(Position cell, std::optional<Cell> clicked_piece, bool clicked_cell_is_selectable) {
     std::optional<Cell> selected_piece = board_.get_at(selected_->x, selected_->y);
     if (!selected_piece.has_value()) {
@@ -87,6 +97,8 @@ bool GameEngine::handle_click_with_selection(Position cell, std::optional<Cell> 
     return true;
 }
 
+// Validates and queues a move of the selected piece onto `cell`, if the
+// destination isn't already reserved and the move is legal for the piece.
 void GameEngine::try_schedule_move(Position cell, Cell selected_piece) {
     if (destination_reserved(cell.x, cell.y)) {
         return;
@@ -107,6 +119,8 @@ void GameEngine::try_schedule_move(Position cell, Cell selected_piece) {
     selected_.reset();
 }
 
+// Resolves a click to a board cell, then either updates the selection or
+// schedules a move, depending on what's currently selected and clicked.
 void GameEngine::click(int pixel_x, int pixel_y) {
     std::optional<Position> cell = pixel_to_cell(pixel_x, pixel_y);
     if (!cell.has_value()) {
@@ -125,6 +139,7 @@ void GameEngine::click(int pixel_x, int pixel_y) {
     }
 }
 
+// Advances the clock and settles any moves that have now arrived.
 void GameEngine::wait(int milliseconds) {
     if (milliseconds > 0) {
         clock_ms_ += milliseconds;
