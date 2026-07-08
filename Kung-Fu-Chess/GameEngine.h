@@ -67,4 +67,17 @@ private:
 
     long long arrival_time_for(int start_x, int start_y, int dest_x, int dest_y) const;
     void settle_arrived_moves();
+
+    // Handles a click while a piece is already selected: reselects on a
+    // click on another selectable friendly piece, otherwise attempts to
+    // move the selection to `cell`. Returns false only when the selected
+    // cell turned out to be stale (its piece is gone), in which case the
+    // selection is cleared and the click should be treated as a fresh one.
+    bool handle_click_with_selection(Position cell, std::optional<Cell> clicked_piece, bool clicked_cell_is_selectable);
+
+    // Attempts to move the currently selected piece to `cell`. Does nothing
+    // if the destination is already reserved by another pending move, or if
+    // the move doesn't match the piece's shape (or its path is blocked). On
+    // success, queues a pending move and clears the selection.
+    void try_schedule_move(Position cell, Cell selected_piece);
 };

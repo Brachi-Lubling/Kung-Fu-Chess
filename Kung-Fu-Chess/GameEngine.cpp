@@ -71,6 +71,42 @@ void GameEngine::settle_arrived_moves() {
     pending_moves_ = std::move(still_pending);
 }
 
+bool GameEngine::handle_click_with_selection(Position cell, std::optional<Cell> clicked_piece, bool clicked_cell_is_selectable) {
+    std::optional<Cell> selected_piece = board_.get_at(selected_->x, selected_->y);
+    if (!selected_piece.has_value()) {
+        selected_.reset();
+        return false;
+    }
+
+    if (clicked_cell_is_selectable && clicked_piece->color == selected_piece->color) {
+        selected_ = cell;
+        return true;
+    }
+
+    try_schedule_move(cell, *selected_piece);
+    return true;
+}
+
+void GameEngine::try_schedule_move(Position cell, Cell selected_piece) {
+    if (destination_reserved(cell.x, cell.y)) {
+        return;
+    }
+
+    const Piece* piece = PieceFactory::get_piece(selected_piece.type);
+    if (!piece || !piece->is_available_move(selected_->x, selected_->y, cell.x, cell.y, board_)) {
+        return;
+    }
+
+    pending_moves_.push_back(PendingMove{
+        *selected_,
+        cell,
+        selected_piece,
+        arrival_time_for(selected_->x, selected_->y, cell.x, cell.y),
+    });
+
+    selected_.reset();
+}
+
 void GameEngine::click(int pixel_x, int pixel_y) {
     std::optional<Position> cell = pixel_to_cell(pixel_x, pixel_y);
     if (!cell.has_value()) {
@@ -78,56 +114,10 @@ void GameEngine::click(int pixel_x, int pixel_y) {
     }
 
     std::optional<Cell> clicked_piece = board_.get_at(cell->x, cell->y);
+    bool clicked_cell_is_selectable = clicked_piece.has_value() && !is_moving(cell->x, cell->y);
 
-    bool clicked_cell_is_selectable =
-        clicked_piece.has_value() &&
-        !is_moving(cell->x, cell->y);
-
-    if (selected_.has_value()) {
-        std::optional<Cell> selected_piece =
-            board_.get_at(selected_->x, selected_->y);
-
-        if (selected_piece.has_value()) {
-
-            if (clicked_cell_is_selectable &&
-                clicked_piece->color == selected_piece->color) {
-                selected_ = cell;
-                return;
-            }
-
-            if (destination_reserved(cell->x, cell->y)) {
-                return;
-            }
-
-            const Piece* piece =
-                PieceFactory::get_piece(selected_piece->type);
-
-            if (!piece ||
-                !piece->is_available_move(
-                    selected_->x,
-                    selected_->y,
-                    cell->x,
-                    cell->y,
-                    board_)) {
-                return;
-            }
-
-            pending_moves_.push_back(PendingMove{
-                *selected_,
-                *cell,
-                *selected_piece,
-                arrival_time_for(
-                    selected_->x,
-                    selected_->y,
-                    cell->x,
-                    cell->y)
-            });
-
-            selected_.reset();
-            return;
-        }
-
-        selected_.reset();
+    if (selected_.has_value() && handle_click_with_selection(*cell, clicked_piece, clicked_cell_is_selectable)) {
+        return;
     }
 
     if (clicked_cell_is_selectable) {
